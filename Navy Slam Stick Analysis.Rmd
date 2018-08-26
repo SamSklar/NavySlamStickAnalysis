@@ -1,0 +1,132 @@
+---
+title: "Navy Slam Stick Data"
+author: "SamSklar"
+date: "5/2/2018"
+output: word_document
+---
+
+
+```{r}
+PE_Data_Frames = list()
+SS_Data_File_Path = "/Users/samsklar/Desktop/Slam Stick Data/SSPE_"
+
+count = 1
+for(x in LETTERS){
+  if(x < 'U'){
+    #file_path = SS_Data_File_Path + x + ".txt"
+    file_path = paste(SS_Data_File_Path, x, sep="")
+    file_path = paste(file_path, ".txt", sep="")
+    curr_df = read.table(file_path, header = TRUE, sep = '\t')
+    curr_df$TIME = curr_df$TIME - curr_df$TIME[1]
+    curr_df$TIME = curr_df$TIME * (24* 60)
+    curr_df$ALTITUDE = 145366.45 * (1 - ((curr_df$PRESSURE / 100) / 1013.25) ** .190284)
+    curr_df$PRESSURE = curr_df$PRESSURE / 101325
+    PE_Data_Frames[[count]] <- curr_df
+    count <- 1 + count
+  }
+}
+
+
+SS_Data_Derivates <-data.frame(FlightNumber = integer(),AvgTemp = double(), AvgPress = double(), AvgTempDelta = double(), AvgPressDelta = double(), MaxTemp = double(), MinTemp = double(), MaxPressure = double(), MinPressure = double(), PE = logical())
+
+```
+
+```{r}
+
+for(y in 1:20){
+  curr_df = PE_Data_Frames[[y]]
+  sum_pressure = 0.0
+  sum_temp = 0.0
+  for(x in 1:(length(curr_df$PRESSURE) - 1)){
+    sum_pressure = sum_pressure + (abs(curr_df$PRESSURE[x+1] - curr_df$PRESSURE[x]) / (curr_df$TIME[x+1] - curr_df$TIME[x]))
+    sum_temp = sum_temp + (abs(curr_df$TEMPERATURE[x+1] - curr_df$TEMPERATURE[x]) / (curr_df$TIME[x+1] - curr_df$TIME[x]))
+  }
+  mean_pressure_change = sum_pressure / length(curr_df$PRESSURE)
+  mean_temp_change = sum_temp / length(curr_df$TEMPERATURE)
+  
+  mean_pressure = mean(curr_df$PRESSURE)
+  mean_temp = mean(curr_df$TEMPERATURE)
+  
+  max_temp = max(curr_df$TEMPERATURE)
+  min_temp = min(curr_df$TEMPERATURE)
+  max_pressure = max(curr_df$PRESSURE)
+  min_pressure = min(curr_df$PRESSURE)
+  
+  curr_list <- list(FlightNumber=y, AvgTemp=mean_temp, AvgPress=mean_pressure, AvgTempDelta = mean_temp_change, AvgPressDelta = mean_pressure_change, MaxTemp = max_temp, MinTemp = min_temp, MaxPressure = max_pressure, MinPressure = min_pressure, PE = TRUE)
+
+  SS_Data_Derivates = rbind(SS_Data_Derivates,curr_list, stringsAsFactors=FALSE)
+
+}
+
+```
+
+
+```{r}
+summary(SS_Data_Derivates)
+```
+
+```{r}
+plot(PE_Data_Frames[[3]]$TIME, PE_Data_Frames[[3]]$PRESSURE, xlab = "Time (Minutes)", ylab = "Atmospheric Pressure")
+plot(PE_Data_Frames[[3]]$TIME, PE_Data_Frames[[3]]$TEMPERATURE, xlab = "Time (Minutes)", ylab = "Temperature (Degrees Celcius)")
+plot(PE_Data_Frames[[12]]$TIME, PE_Data_Frames[[12]]$ALTITUDE, xlab = "Time (Minutes)", ylab = "Pressure Altitude (Feet)")
+```
+
+```{r}
+file_names = list.files(path = "/Users/samsklar/Desktop/20 Non-PE Files/", pattern = NULL, all.files = FALSE,
+           full.names = FALSE, recursive = FALSE,
+           ignore.case = FALSE, include.dirs = FALSE, no.. = FALSE)
+
+NonPE_Data_Frames = list()
+
+count = 1
+for(file in file_names){
+  path = paste("/Users/samsklar/Desktop/20 Non-PE Files/" , file, sep="")
+  curr_df = read.table(path, header = TRUE, sep = '\t')
+  curr_df$TIME = curr_df$TIME - curr_df$TIME[1]
+  curr_df$TIME = curr_df$TIME * (24* 60)
+  curr_df$ALTITUDE = 145366.45 * (1 - ((curr_df$PRESSURE / 100) / 1013.25) ** .190284)
+  curr_df$PRESSURE = curr_df$PRESSURE / 101325
+  NonPE_Data_Frames[[count]] <- curr_df
+  count <- 1 + count
+}
+
+for(y in 1:20){
+  curr_df = NonPE_Data_Frames[[y]]
+  sum_pressure = 0.0
+  sum_temp = 0.0
+  for(x in 1:(length(curr_df$PRESSURE) - 1)){
+    sum_pressure = sum_pressure + (abs(curr_df$PRESSURE[x+1] - curr_df$PRESSURE[x]) / (curr_df$TIME[x+1] - curr_df$TIME[x]))
+    sum_temp = sum_temp + (abs(curr_df$TEMPERATURE[x+1] - curr_df$TEMPERATURE[x]) / (curr_df$TIME[x+1] - curr_df$TIME[x]))
+  }
+  mean_pressure_change = sum_pressure / length(curr_df$PRESSURE)
+  mean_temp_change = sum_temp / length(curr_df$TEMPERATURE)
+  
+  mean_pressure = mean(curr_df$PRESSURE)
+  mean_temp = mean(curr_df$TEMPERATURE)
+  
+  max_temp = max(curr_df$TEMPERATURE)
+  min_temp = min(curr_df$TEMPERATURE)
+  max_pressure = max(curr_df$PRESSURE)
+  min_pressure = min(curr_df$PRESSURE)
+  
+  curr_list <- list(FlightNumber=y, AvgTemp=mean_temp, AvgPress=mean_pressure, AvgTempDelta = mean_temp_change, AvgPressDelta = mean_pressure_change, MaxTemp = max_temp, MinTemp = min_temp, MaxPressure = max_pressure, MinPressure = min_pressure, PE = FALSE)
+
+  SS_Data_Derivates = rbind(SS_Data_Derivates,curr_list, stringsAsFactors=FALSE)
+
+}
+
+
+```
+
+```{r}
+summary(SS_Data_Derivates)
+SS_Data_Derivate_Predictors = SS_Data_Derivates[,-1]
+justNonPe = SS_Data_Derivates[SS_Data_Derivates$PE == FALSE,]
+summary(justNonPe)
+```
+
+```{r}
+lm.fit = lm(PE~., data = SS_Data_Derivate_Predictors)
+summary(lm.fit)
+```
+
